@@ -15,6 +15,11 @@
 	<description>Projeto exemplo para o curso de Spring Boot - FIAP</description>
 	<properties>
 		<java.version>21</java.version>
+		<mysql-connector-java.version>8.0.33</mysql-connector-java.version>
+		<modelmapper.version>3.2.0</modelmapper.version>
+		<springdoc-openapi.version>2.5.0</springdoc-openapi.version>
+		<junit-jupiter-api.version>5.11.0</junit-jupiter-api.version>
+
 	</properties>
 	<dependencies>
 		<dependency>
@@ -69,6 +74,15 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
+		<dependency>
+    		<groupId>mysql</groupId>
+    		<artifactId>mysql-connector-java</artifactId>
+    		<version>8.1.0</version>
+    		<scope>runtime</scope>
+		</dependency>
+
+
 
 		<dependency>
 			<groupId>com.auth0</groupId>

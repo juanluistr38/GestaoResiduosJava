@@ -1,33 +1,52 @@
-version: '3.8'
+name: Continuous Integration
 
-services:
-  db:
-    image: gvenzl/oracle-xe:21-slim
-    environment:
-      - ORACLE_PASSWORD=240885
-      - APP_USER=RM98011
-      - APP_USER_PASSWORD=240885
-    ports:
-      - "1521:1521"
-    volumes:
-      - oracle-data:/opt/oracle/oradata
-    healthcheck:
-      test: ["CMD-SHELL", "echo 'SELECT 1 FROM DUAL;' | sqlplus -s RM98011/240885@//localhost:1521/XE"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
+on:
+  push:
+    branches: "feature/**"
 
-  app:
-    build: .
-    ports:
-      - "8080:8080"
-    depends_on:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
       db:
-        condition: service_healthy
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@db:1521:XE
-      SPRING_DATASOURCE_USERNAME: RM98011
-      SPRING_DATASOURCE_PASSWORD: 240885
+        image: mysql:latest
+        env:
+          MYSQL_ROOT_PASSWORD: root_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping --silent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+    - name: Git Checkout
+      uses: actions/checkout@v4
 
-volumes:
-  oracle-data:
+    - name: Setup Java SDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    - name: Wait for MySQL to be ready
+      run: |
+        for i in {1..30}; do
+          if nc -z localhost 3306; then
+            echo "MySQL is up"
+            break
+          else
+            echo "Waiting for MySQL..."
+            sleep 2
+          fi
+        done
+
+    - name: Run Tests
+      env:
+        SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/testdb
+        SPRING_DATASOURCE_USERNAME: root
+        SPRING_DATASOURCE_PASSWORD: root_pass
+      run: mvn test
+
+    - name: Build Project
+      run: mvn clean package
