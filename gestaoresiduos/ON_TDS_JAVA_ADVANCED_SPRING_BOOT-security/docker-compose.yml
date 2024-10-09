@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  db:
+    image: gvenzl/oracle-xe:21-slim
+    environment:
+      - ORACLE_PASSWORD=240885
+      - APP_USER=RM98011
+      - APP_USER_PASSWORD=240885
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'SELECT 1 FROM DUAL;' | sqlplus -s RM98011/240885@//localhost:1521/XE"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@db:1521:XE
+      SPRING_DATASOURCE_USERNAME: RM98011
+      SPRING_DATASOURCE_PASSWORD: 240885
+
+volumes:
+  oracle-data:
