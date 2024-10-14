@@ -1,0 +1,47 @@
+name: 03 - Actions
+
+on: 
+  push:
+    branches: ["feature/**"]
+
+jobs:
+  checkout_java_docker:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: your_root_password
+          MYSQL_DATABASE: your_database
+          MYSQL_USER: your_username
+          MYSQL_PASSWORD: your_password
+        ports:
+          - 3306:3306
+        options: > -
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:            
+      - name: Git Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java SDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin' 
+          java-version: '21'
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+
+      - name: Executar scripts
+        run: |
+          git branch
+          java --version 
+          mvn clean package
