@@ -1,0 +1,96 @@
+package br.com.fiap.usuario.controller;
+
+import br.com.fiap.usuario.dto.AgendamentoCadastroDTO;
+import br.com.fiap.usuario.dto.AgendamentoExibicaoDTO;
+import br.com.fiap.usuario.service.AgendamentoService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.List;
+
+import static org.hamcrest.Matchers.*;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@ExtendWith(SpringExtension.class)
+@SpringBootTest
+public class AgendamentoControllerTest {
+
+    @Autowired
+    private AgendamentoController agendamentoController;
+
+    @MockBean
+    private AgendamentoService agendamentoService;
+
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper; // Para converter objetos Java em JSON
+
+    @BeforeEach
+    public void setup() {
+        mockMvc = MockMvcBuilders.standaloneSetup(agendamentoController).build();
+    }
+
+    @Test
+    public void testSalvarAgendamento() throws Exception {
+        AgendamentoCadastroDTO agendamentoCadastroDTO = new AgendamentoCadastroDTO();
+        agendamentoCadastroDTO.setUsuario("usuario@example.com");
+        agendamentoCadastroDTO.setEndereco("Rua Exemplo, 123");
+        agendamentoCadastroDTO.setTipoLixo("Reciclável");
+        agendamentoCadastroDTO.setDataHoraEnvio("2023-10-15T10:00:00");
+
+        AgendamentoExibicaoDTO agendamentoExibicaoDTO = new AgendamentoExibicaoDTO(
+                1L,
+                agendamentoCadastroDTO.getUsuario(),
+                agendamentoCadastroDTO.getEndereco(),
+                agendamentoCadastroDTO.getTipoLixo(),
+                agendamentoCadastroDTO.getDataHoraEnvio()
+        );
+
+        when(agendamentoService.salvarAgendamento(agendamentoCadastroDTO)).thenReturn(agendamentoExibicaoDTO);
+
+        mockMvc.perform(post("/agendamento/cadastrar")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(agendamentoCadastroDTO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id", is(1)))
+                .andExpect(jsonPath("$.usuario", is("usuario@example.com")));
+    }
+
+    @Test
+    public void testListarTodosAgendamentos() throws Exception {
+        Pageable pageable = PageRequest.of(0, 20);
+        List<AgendamentoExibicaoDTO> agendamentos = List.of(
+                new AgendamentoExibicaoDTO(1L, "usuario1@example.com", "Endereço 1", "Reciclável", "2023-10-15T10:00:00"),
+                new AgendamentoExibicaoDTO(2L, "usuario2@example.com", "Endereço 2", "Orgânico", "2023-10-16T11:00:00")
+        );
+
+        when(agendamentoService.listarTodos(pageable)).thenReturn(new PageImpl<>(agendamentos, pageable, agendamentos.size()));
+
+        mockMvc.perform(get("/agendamento/listar")
+                .contentType(MediaType.APPLICATION_JSON)
+                .param("page", "0")
+                .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[0].usuario", is("usuario1@example.com")))
+                .andExpect(jsonPath("$.content[1].usuario", is("usuario2@example.com")));
+    }
+}

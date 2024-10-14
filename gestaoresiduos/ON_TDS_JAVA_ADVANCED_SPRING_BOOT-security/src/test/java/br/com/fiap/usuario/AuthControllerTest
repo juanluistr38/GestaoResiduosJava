@@ -1,0 +1,103 @@
+package br.com.fiap.usuario.controller;
+
+import br.com.fiap.usuario.config.security.TokenService;
+import br.com.fiap.usuario.dto.LoginDTO;
+import br.com.fiap.usuario.dto.UsuarioCadastroDTO;
+import br.com.fiap.usuario.model.Usuario;
+import br.com.fiap.usuario.model.UsuarioRole;
+import br.com.fiap.usuario.service.UsuarioService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.Authentication;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import org.springframework.http.MediaType;
+
+@ExtendWith(SpringExtension.class)
+@SpringBootTest
+public class AuthControllerTest {
+
+    @Autowired
+    private AuthController authController;
+
+    @MockBean
+    private AuthenticationManager authenticationManager;
+
+    @MockBean
+    private TokenService tokenService;
+
+    @MockBean
+    private UsuarioService usuarioService;
+
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper; // Para converter objetos Java em JSON
+
+    @BeforeEach
+    public void setup() {
+        mockMvc = MockMvcBuilders.standaloneSetup(authController).build();
+    }
+
+    @Test
+    public void testLogin() throws Exception {
+        // Criando um DTO de login
+        LoginDTO loginDTO = new LoginDTO("joao.silva@example.com", "senha123");
+
+        // Simulando a autenticação
+        Authentication authentication = org.mockito.Mockito.mock(Authentication.class);
+        when(authenticationManager.authenticate(any())).thenReturn(authentication);
+
+        // Simulando o usuário autenticado
+        Usuario usuario = new Usuario();
+        usuario.setEmail("joao.silva@example.com");
+        usuario.setSenha("senha123");
+        usuario.setRole(UsuarioRole.USER);
+
+        when(authentication.getPrincipal()).thenReturn(usuario);
+
+        // Simulando a geração do token
+        when(tokenService.gerarToken(usuario)).thenReturn("fake-jwt-token");
+
+        // Executando a requisição POST
+        mockMvc.perform(post("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(loginDTO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token", is("fake-jwt-token")));
+    }
+
+    @Test
+    public void testRegistrarUsuario() throws Exception {
+        UsuarioCadastroDTO usuarioCadastroDTO = new UsuarioCadastroDTO();
+        usuarioCadastroDTO.setNome("João Silva");
+        usuarioCadastroDTO.setEmail("joao.silva@example.com");
+        usuarioCadastroDTO.setSenha("senha123");
+        usuarioCadastroDTO.setRole(UsuarioRole.USER);
+
+        when(usuarioService.salvarUsuario(usuarioCadastroDTO)).thenReturn(usuarioCadastroDTO.toExibicaoDTO());
+
+        mockMvc.perform(post("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(usuarioCadastroDTO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.nome", is("João Silva")))
+                .andExpect(jsonPath("$.email", is("joao.silva@example.com")));
+    }
+}

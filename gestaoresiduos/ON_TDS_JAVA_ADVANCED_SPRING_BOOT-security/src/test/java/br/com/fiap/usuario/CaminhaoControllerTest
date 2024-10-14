@@ -1,0 +1,153 @@
+package br.com.fiap.usuario.controller;
+
+import br.com.fiap.usuario.dto.CaminhaoCadastroDTO;
+import br.com.fiap.usuario.dto.CaminhaoExibicaoDTO;
+import br.com.fiap.usuario.service.CaminhaoService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.List;
+
+import static org.hamcrest.Matchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@ExtendWith(SpringExtension.class)
+@SpringBootTest
+public class CaminhaoControllerTest {
+
+    @Autowired
+    private CaminhaoController caminhaoController;
+
+    @MockBean
+    private CaminhaoService caminhaoService;
+
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper; // Para converter objetos Java em JSON
+
+    @BeforeEach
+    public void setup() {
+        mockMvc = MockMvcBuilders.standaloneSetup(caminhaoController).build();
+    }
+
+    @Test
+    public void testSalvarCaminhao() throws Exception {
+        CaminhaoCadastroDTO caminhaoCadastroDTO = new CaminhaoCadastroDTO();
+        caminhaoCadastroDTO.setPlaca("ABC-1234");
+        caminhaoCadastroDTO.setModelo("Modelo X");
+        caminhaoCadastroDTO.setCapacidade(1000.0);
+        caminhaoCadastroDTO.setStatus("Ativo");
+        caminhaoCadastroDTO.setRotaAtual("Rota 1");
+
+        CaminhaoExibicaoDTO caminhaoExibicaoDTO = new CaminhaoExibicaoDTO(
+                1L,
+                caminhaoCadastroDTO.getPlaca(),
+                caminhaoCadastroDTO.getModelo(),
+                caminhaoCadastroDTO.getCapacidade(),
+                caminhaoCadastroDTO.getStatus(),
+                caminhaoCadastroDTO.getRotaAtual()
+        );
+
+        when(caminhaoService.salvarCaminhao(caminhaoCadastroDTO)).thenReturn(caminhaoExibicaoDTO);
+
+        mockMvc.perform(post("/caminhao/cadastrar")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(caminhaoCadastroDTO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.caminhaoId", is(1)))
+                .andExpect(jsonPath("$.placa", is("ABC-1234")));
+    }
+
+    @Test
+    public void testListarTodosCaminhoes() throws Exception {
+        Pageable pageable = PageRequest.of(0, 20);
+        List<CaminhaoExibicaoDTO> caminhoes = List.of(
+                new CaminhaoExibicaoDTO(1L, "ABC-1234", "Modelo X", 1000.0, "Ativo", "Rota 1"),
+                new CaminhaoExibicaoDTO(2L, "DEF-5678", "Modelo Y", 2000.0, "Inativo", "Rota 2")
+        );
+
+        when(caminhaoService.listarTodos(pageable)).thenReturn(new PageImpl<>(caminhoes, pageable, caminhoes.size()));
+
+        mockMvc.perform(get("/caminhao/listar")
+                .contentType(MediaType.APPLICATION_JSON)
+                .param("page", "0")
+                .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[0].placa", is("ABC-1234")))
+                .andExpect(jsonPath("$.content[1].placa", is("DEF-5678")));
+    }
+
+    @Test
+    public void testBuscarPorPlaca() throws Exception {
+        String placa = "ABC-1234";
+        CaminhaoExibicaoDTO caminhaoExibicaoDTO = new CaminhaoExibicaoDTO(
+                1L, placa, "Modelo X", 1000.0, "Ativo", "Rota 1"
+        );
+
+        when(caminhaoService.buscarPorPlaca(placa)).thenReturn(caminhaoExibicaoDTO);
+
+        mockMvc.perform(get("/caminhao/listar")
+                .param("placa", placa)
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.placa", is(placa)))
+                .andExpect(jsonPath("$.modelo", is("Modelo X")));
+    }
+
+    @Test
+    public void testAtualizarCaminhao() throws Exception {
+        CaminhaoCadastroDTO caminhaoCadastroDTO = new CaminhaoCadastroDTO();
+        caminhaoCadastroDTO.setPlaca("ABC-1234");
+        caminhaoCadastroDTO.setModelo("Modelo X Atualizado");
+        caminhaoCadastroDTO.setCapacidade(1500.0);
+        caminhaoCadastroDTO.setStatus("Ativo");
+        caminhaoCadastroDTO.setRotaAtual("Rota 1");
+
+        CaminhaoExibicaoDTO caminhaoExibicaoDTO = new CaminhaoExibicaoDTO(
+                1L,
+                caminhaoCadastroDTO.getPlaca(),
+                caminhaoCadastroDTO.getModelo(),
+                caminhaoCadastroDTO.getCapacidade(),
+                caminhaoCadastroDTO.getStatus(),
+                caminhaoCadastroDTO.getRotaAtual()
+        );
+
+        when(caminhaoService.atualizar(caminhaoCadastroDTO)).thenReturn(caminhaoExibicaoDTO);
+
+        mockMvc.perform(put("/caminhao/atualizar")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(caminhaoCadastroDTO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.modelo", is("Modelo X Atualizado")))
+                .andExpect(jsonPath("$.capacidade", is(1500.0)));
+    }
+
+    @Test
+    public void testExcluirCaminhao() throws Exception {
+        Long caminhaoId = 1L;
+
+        // Não precisamos simular o serviço aqui porque o método não retorna nada
+
+        mockMvc.perform(delete("/caminhao/deletar/{caminhaoId}", caminhaoId))
+                .andExpect(status().isNoContent());
+    }
+}

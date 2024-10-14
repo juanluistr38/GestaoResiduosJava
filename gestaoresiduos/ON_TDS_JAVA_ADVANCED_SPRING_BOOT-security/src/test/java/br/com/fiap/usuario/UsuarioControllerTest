@@ -1,0 +1,110 @@
+package br.com.fiap.usuario.controller;
+
+import br.com.fiap.usuario.dto.UsuarioCadastroDTO;
+import br.com.fiap.usuario.model.UsuarioRole;
+import br.com.fiap.usuario.service.UsuarioService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import static org.hamcrest.Matchers.*;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@ExtendWith(SpringExtension.class)
+@SpringBootTest
+public class UsuarioControllerTest {
+
+    @Autowired
+    private UsuarioController usuarioController;
+
+    @MockBean
+    private UsuarioService usuarioService;
+
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper; // Para converter objetos Java em JSON
+
+    @BeforeEach
+    public void setup() {
+        mockMvc = MockMvcBuilders.standaloneSetup(usuarioController).build();
+    }
+
+    @Test
+    public void testSalvarUsuario() throws Exception {
+        // Criando um DTO de cadastro de usuário
+        UsuarioCadastroDTO usuarioCadastroDTO = new UsuarioCadastroDTO();
+        usuarioCadastroDTO.setNome("João Silva");
+        usuarioCadastroDTO.setEmail("joao.silva@example.com");
+        usuarioCadastroDTO.setSenha("senha123");
+        usuarioCadastroDTO.setRole(UsuarioRole.USER);
+
+        // Simulando o retorno do serviço
+        when(usuarioService.salvarUsuario(usuarioCadastroDTO)).thenReturn(usuarioCadastroDTO.toExibicaoDTO());
+
+        // Executando a requisição POST
+        mockMvc.perform(post("/api/usuarios")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(usuarioCadastroDTO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.nome", is("João Silva")))
+                .andExpect(jsonPath("$.email", is("joao.silva@example.com")));
+    }
+
+    @Test
+    public void testListarTodosUsuarios() throws Exception {
+        // Simulando a resposta do serviço
+        when(usuarioService.listarTodos()).thenReturn(List.of(
+                new UsuarioCadastroDTO("João Silva", "joao.silva@example.com", "senha123", UsuarioRole.USER).toExibicaoDTO(),
+                new UsuarioCadastroDTO("Maria Souza", "maria.souza@example.com", "senha456", UsuarioRole.ADMIN).toExibicaoDTO()
+        ));
+
+        // Executando a requisição GET
+        mockMvc.perform(get("/api/usuarios"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].nome", is("João Silva")))
+                .andExpect(jsonPath("$[1].nome", is("Maria Souza")));
+    }
+
+    @Test
+    public void testBuscarUsuarioPorId() throws Exception {
+        Long usuarioId = 1L;
+        // Simulando a resposta do serviço
+        when(usuarioService.buscarPorId(usuarioId)).thenReturn(
+                new UsuarioCadastroDTO("João Silva", "joao.silva@example.com", "senha123", UsuarioRole.USER).toExibicaoDTO()
+        );
+
+        // Executando a requisição GET
+        mockMvc.perform(get("/api/usuarios/{usuarioId}", usuarioId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome", is("João Silva")))
+                .andExpect(jsonPath("$.email", is("joao.silva@example.com")));
+    }
+
+    @Test
+    public void testExcluirUsuario() throws Exception {
+        Long usuarioId = 1L;
+
+        // Não precisamos simular o serviço aqui porque o método não retorna nada
+
+        // Executando a requisição DELETE
+        mockMvc.perform(delete("/api/usuarios/{usuarioId}", usuarioId))
+                .andExpect(status().isNoContent());
+    }
+}
